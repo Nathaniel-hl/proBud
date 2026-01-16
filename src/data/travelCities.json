@@ -1,0 +1,62 @@
+[
+  {
+    "city": "北京",
+    "transport": 1500,
+    "accommodation": 500,
+    "food": 100
+  },
+  {
+    "city": "上海",
+    "transport": 1200,
+    "accommodation": 500,
+    "food": 100
+  },
+  {
+    "city": "广州",
+    "transport": 1000,
+    "accommodation": 450,
+    "food": 100
+  },
+  {
+    "city": "深圳",
+    "transport": 1100,
+    "accommodation": 500,
+    "food": 100
+  },
+  {
+    "city": "成都",
+    "transport": 800,
+    "accommodation": 400,
+    "food": 100
+  },
+  {
+    "city": "杭州",
+    "transport": 900,
+    "accommodation": 450,
+    "food": 100
+  },
+  {
+    "city": "武汉",
+    "transport": 700,
+    "accommodation": 400,
+    "food": 100
+  },
+  {
+    "city": "西安",
+    "transport": 800,
+    "accommodation": 400,
+    "food": 100
+  },
+  {
+    "city": "南京",
+    "transport": 800,
+    "accommodation": 450,
+    "food": 100
+  },
+  {
+    "city": "重庆",
+    "transport": 750,
+    "accommodation": 400,
+    "food": 100
+  }
+]
