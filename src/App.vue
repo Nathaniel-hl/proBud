@@ -1,5 +1,6 @@
 <script setup>
 import { ref, reactive, watch, computed, onMounted } from 'vue'
+import * as XLSX from 'xlsx'
 import BudgetSummary from './components/BudgetSummary.vue'
 import EquipmentFee from './components/EquipmentFee.vue'
 import MaterialFee from './components/MaterialFee.vue'
@@ -60,11 +61,21 @@ const budgetData = reactive({
   },
   travel: {
     travels: [],
-    totalWan: 0
+    totalWan: 0,
+    plannerConfig: {
+      targetAmount: 5,
+      tolerancePercent: 15,
+      cityConfigs: []
+    }
   },
   meeting: {
     meetings: [],
-    totalWan: 0
+    totalWan: 0,
+    plannerConfig: {
+      targetAmount: 2,
+      tolerancePercent: 15,
+      meetingConfigs: []
+    }
   },
   international: {
     exchanges: [],
@@ -86,7 +97,17 @@ const budgetData = reactive({
     personnelUnit: 'wan',
     expertUnit: 'wan',
     personnelTotalWan: 0,
-    expertTotalWan: 0
+    expertTotalWan: 0,
+    plannerConfig: {
+      targetAmount: 10,
+      tolerancePercent: 15,
+      personnelConfigs: []
+    },
+    expertPlannerConfig: {
+      targetAmount: 2,
+      tolerancePercent: 15,
+      expertConfigs: []
+    }
   },
   indirect: {
     amount: 0,
@@ -134,7 +155,9 @@ onMounted(() => {
   loadFromLocalStorage()
 })
 
-const totalExcludePrint = computed(() => {
+const purchaseEquipmentTotal = computed(() => budgetData.equipment.purchaseTotalWan || 0)
+
+const directTotal = computed(() => {
   const equipmentTotal = (budgetData.equipment.purchaseTotalWan || 0) + (budgetData.equipment.trialTotalWan || 0)
   const materialTotal = budgetData.material.totalWan || 0
   const testingTotal = budgetData.testing.totalWan || 0
@@ -142,12 +165,17 @@ const totalExcludePrint = computed(() => {
   const travelTotal = budgetData.travel.totalWan || 0
   const meetingTotal = budgetData.meeting.totalWan || 0
   const internationalTotal = budgetData.international.totalWan || 0
+  const publicationTotal = budgetData.publication.totalWan || 0
   const otherTotal = budgetData.other.totalWan || 0
   const laborTotal = (budgetData.labor.personnelTotalWan || 0) + (budgetData.labor.expertTotalWan || 0)
-  const indirectTotal = budgetData.indirect.totalWan || 0
   
   return equipmentTotal + materialTotal + testingTotal + fuelTotal + travelTotal + 
-         meetingTotal + internationalTotal + otherTotal + laborTotal + indirectTotal
+         meetingTotal + internationalTotal + publicationTotal + otherTotal + laborTotal
+})
+
+const totalExcludePrint = computed(() => {
+  const indirectTotal = budgetData.indirect.totalWan || 0
+  return directTotal.value + indirectTotal
 })
 
 const exportData = () => {
@@ -161,6 +189,276 @@ const exportData = () => {
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
+}
+
+const exportToExcel = () => {
+  const wb = XLSX.utils.book_new()
+  
+  // 1. 经费测算汇总表
+  const summaryData = [
+    ['经费测算汇总表'],
+    ['序号', '科目名称', '金额(万元)'],
+    ['1', '设备费', ((budgetData.equipment.purchaseTotalWan || 0) + (budgetData.equipment.trialTotalWan || 0)).toFixed(2)],
+    ['1.1', '  购置设备', (budgetData.equipment.purchaseTotalWan || 0).toFixed(2)],
+    ['1.2', '  试制设备', (budgetData.equipment.trialTotalWan || 0).toFixed(2)],
+    ['2', '材料费', (budgetData.material.totalWan || 0).toFixed(2)],
+    ['3', '测试化验加工费', (budgetData.testing.totalWan || 0).toFixed(2)],
+    ['4', '燃料动力费', (budgetData.fuel.totalWan || 0).toFixed(2)],
+    ['5', '差旅费', (budgetData.travel.totalWan || 0).toFixed(2)],
+    ['6', '会议费', (budgetData.meeting.totalWan || 0).toFixed(2)],
+    ['7', '国际合作与交流费', (budgetData.international.totalWan || 0).toFixed(2)],
+    ['8', '出版文献费', (budgetData.publication.totalWan || 0).toFixed(2)],
+    ['9', '其他费用', (budgetData.other.totalWan || 0).toFixed(2)],
+    ['10', '劳务费', ((budgetData.labor.personnelTotalWan || 0) + (budgetData.labor.expertTotalWan || 0)).toFixed(2)],
+    ['10.1', '  人员劳务费', (budgetData.labor.personnelTotalWan || 0).toFixed(2)],
+    ['10.2', '  专家咨询费', (budgetData.labor.expertTotalWan || 0).toFixed(2)],
+    ['', '直接费用合计', directTotal.value.toFixed(2)],
+    ['11', '间接费用', (budgetData.indirect.totalWan || 0).toFixed(2)],
+    ['', '总计', totalExcludePrint.value.toFixed(2)]
+  ]
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData)
+  wsSummary['!cols'] = [{ wch: 8 }, { wch: 20 }, { wch: 15 }]
+  XLSX.utils.book_append_sheet(wb, wsSummary, '经费汇总')
+  
+  // 2. 设备费-购置设备
+  if (budgetData.equipment.purchaseEquipments?.length > 0) {
+    const purchaseData = [
+      ['购置设备明细'],
+      ['序号', '设备名称', '型号规格', '单价', '数量', '金额', '用途', '供应商'],
+      ...budgetData.equipment.purchaseEquipments.map((item, i) => [
+        i + 1,
+        item.name || '',
+        item.model || '',
+        item.unitPrice || 0,
+        item.quantity || 0,
+        ((item.unitPrice || 0) * (item.quantity || 0)).toFixed(2),
+        item.purpose || '',
+        item.supplier || ''
+      ]),
+      ['', '', '', '', '合计', (budgetData.equipment.purchaseTotalWan || 0).toFixed(2), '', '']
+    ]
+    const wsPurchase = XLSX.utils.aoa_to_sheet(purchaseData)
+    XLSX.utils.book_append_sheet(wb, wsPurchase, '购置设备')
+  }
+  
+  // 3. 设备费-试制设备
+  if (budgetData.equipment.trialEquipments?.length > 0) {
+    const trialData = [
+      ['试制设备明细'],
+      ['序号', '设备名称', '型号规格', '单价', '数量', '金额', '用途', '供应商'],
+      ...budgetData.equipment.trialEquipments.map((item, i) => [
+        i + 1,
+        item.name || '',
+        item.model || '',
+        item.unitPrice || 0,
+        item.quantity || 0,
+        ((item.unitPrice || 0) * (item.quantity || 0)).toFixed(2),
+        item.purpose || '',
+        item.supplier || ''
+      ]),
+      ['', '', '', '', '合计', (budgetData.equipment.trialTotalWan || 0).toFixed(2), '', '']
+    ]
+    const wsTrial = XLSX.utils.aoa_to_sheet(trialData)
+    XLSX.utils.book_append_sheet(wb, wsTrial, '试制设备')
+  }
+  
+  // 4. 材料费
+  if (budgetData.material.materials?.length > 0) {
+    const materialData = [
+      ['材料费明细'],
+      ['序号', '材料名称', '单价', '数量', '金额', '测算依据'],
+      ...budgetData.material.materials.map((item, i) => [
+        i + 1,
+        item.name || '',
+        item.unitPrice || 0,
+        item.quantity || 0,
+        ((item.unitPrice || 0) * (item.quantity || 0)).toFixed(2),
+        item.basis || ''
+      ]),
+      ['', '', '', '合计', (budgetData.material.totalWan || 0).toFixed(2), '']
+    ]
+    const wsMaterial = XLSX.utils.aoa_to_sheet(materialData)
+    XLSX.utils.book_append_sheet(wb, wsMaterial, '材料费')
+  }
+  
+  // 5. 测试化验加工费
+  if (budgetData.testing.testings?.length > 0) {
+    const testingData = [
+      ['测试化验加工费明细'],
+      ['序号', '测试内容', '测试类别', '委托类型', '金额'],
+      ...budgetData.testing.testings.map((item, i) => [
+        i + 1,
+        item.content || '',
+        item.category || '',
+        item.delegateType || '',
+        item.amount || 0
+      ]),
+      ['', '', '', '合计', (budgetData.testing.totalWan || 0).toFixed(2)]
+    ]
+    const wsTesting = XLSX.utils.aoa_to_sheet(testingData)
+    XLSX.utils.book_append_sheet(wb, wsTesting, '测试化验加工费')
+  }
+  
+  // 6. 燃料动力费
+  const fuelData = [
+    ['燃料动力费'],
+    ['金额(万元)', '说明'],
+    [(budgetData.fuel.totalWan || 0).toFixed(2), budgetData.fuel.description || '']
+  ]
+  const wsFuel = XLSX.utils.aoa_to_sheet(fuelData)
+  XLSX.utils.book_append_sheet(wb, wsFuel, '燃料动力费')
+  
+  // 7. 差旅费
+  if (budgetData.travel.travels?.length > 0) {
+    const travelData = [
+      ['差旅费明细'],
+      ['序号', '出差地点', '出差事由', '交通费', '住宿费', '伙食费', '市内交通', '天数', '人数', '次数', '金额'],
+      ...budgetData.travel.travels.map((item, i) => [
+        i + 1,
+        item.city || '',
+        item.purpose || '',
+        item.transport || 0,
+        item.accommodation || 0,
+        item.food || 0,
+        item.localTransport || 0,
+        item.days || 0,
+        item.people || 0,
+        item.times || 0,
+        ''
+      ]),
+      ['', '', '', '', '', '', '', '', '', '合计', (budgetData.travel.totalWan || 0).toFixed(2)]
+    ]
+    const wsTravel = XLSX.utils.aoa_to_sheet(travelData)
+    XLSX.utils.book_append_sheet(wb, wsTravel, '差旅费')
+  }
+  
+  // 8. 会议费
+  if (budgetData.meeting.meetings?.length > 0) {
+    const meetingData = [
+      ['会议费明细'],
+      ['序号', '会议名称', '次数', '天数', '人数', '标准(万)', '金额'],
+      ...budgetData.meeting.meetings.map((item, i) => [
+        i + 1,
+        item.name || '',
+        item.times || 0,
+        item.days || 0,
+        item.attendees || 0,
+        item.standard || 0,
+        ((item.times || 0) * (item.days || 0) * (item.attendees || 0) * (item.standard || 0)).toFixed(2)
+      ]),
+      ['', '', '', '', '', '合计', (budgetData.meeting.totalWan || 0).toFixed(2)]
+    ]
+    const wsMeeting = XLSX.utils.aoa_to_sheet(meetingData)
+    XLSX.utils.book_append_sheet(wb, wsMeeting, '会议费')
+  }
+  
+  // 9. 国际合作与交流费
+  if (budgetData.international.exchanges?.length > 0) {
+    const intlData = [
+      ['国际合作与交流费明细'],
+      ['序号', '交流内容', '国家/地区', '人数', '天数', '金额', '说明'],
+      ...budgetData.international.exchanges.map((item, i) => [
+        i + 1,
+        item.content || '',
+        item.country || '',
+        item.people || 0,
+        item.days || 0,
+        item.amount || 0,
+        item.description || ''
+      ]),
+      ['', '', '', '', '合计', (budgetData.international.totalWan || 0).toFixed(2), '']
+    ]
+    const wsIntl = XLSX.utils.aoa_to_sheet(intlData)
+    XLSX.utils.book_append_sheet(wb, wsIntl, '国际合作与交流费')
+  }
+  
+  // 10. 出版文献费
+  if (budgetData.publication.publications?.length > 0) {
+    const pubData = [
+      ['出版文献费明细'],
+      ['序号', '类型', '单价(元)', '数量', '金额(万)'],
+      ...budgetData.publication.publications.map((item, i) => [
+        i + 1,
+        item.type || '',
+        item.unitPrice || 0,
+        item.quantity || 0,
+        ((item.unitPrice || 0) * (item.quantity || 0) / 10000).toFixed(4)
+      ]),
+      ['', '', '', '合计', (budgetData.publication.totalWan || 0).toFixed(2)]
+    ]
+    const wsPub = XLSX.utils.aoa_to_sheet(pubData)
+    XLSX.utils.book_append_sheet(wb, wsPub, '出版文献费')
+  }
+  
+  // 11. 其他费用
+  if (budgetData.other.others?.length > 0) {
+    const otherData = [
+      ['其他费用明细'],
+      ['序号', '费用名称', '金额', '说明'],
+      ...budgetData.other.others.map((item, i) => [
+        i + 1,
+        item.name || '',
+        item.amount || 0,
+        item.description || ''
+      ]),
+      ['', '', (budgetData.other.totalWan || 0).toFixed(2), '']
+    ]
+    const wsOther = XLSX.utils.aoa_to_sheet(otherData)
+    XLSX.utils.book_append_sheet(wb, wsOther, '其他费用')
+  }
+  
+  // 12. 劳务费-人员劳务费
+  if (budgetData.labor.personnels?.length > 0) {
+    const personnelData = [
+      ['人员劳务费明细'],
+      ['序号', '人员类型', '人数', '月数', '月均费用(万)', '金额(万)', '说明'],
+      ...budgetData.labor.personnels.map((item, i) => [
+        i + 1,
+        item.type === '自定义' ? item.customType : item.type || '',
+        item.count || 0,
+        item.months || 0,
+        item.monthlyCost || 0,
+        ((item.count || 0) * (item.months || 0) * (item.monthlyCost || 0)).toFixed(2),
+        item.description || ''
+      ]),
+      ['', '', '', '', '合计', (budgetData.labor.personnelTotalWan || 0).toFixed(2), '']
+    ]
+    const wsPersonnel = XLSX.utils.aoa_to_sheet(personnelData)
+    XLSX.utils.book_append_sheet(wb, wsPersonnel, '人员劳务费')
+  }
+  
+  // 13. 劳务费-专家咨询费
+  if (budgetData.labor.experts?.length > 0) {
+    const expertData = [
+      ['专家咨询费明细'],
+      ['序号', '会议内容', '人数', '会期(天)', '次数', '人均标准(元)', '金额(万)'],
+      ...budgetData.labor.experts.map((item, i) => [
+        i + 1,
+        item.name || '',
+        item.people || 0,
+        item.days || 0,
+        item.times || 0,
+        item.standard || 0,
+        ((item.people || 0) * (item.days || 0) * (item.times || 0) * (item.standard || 0) / 10000).toFixed(4)
+      ]),
+      ['', '', '', '', '', '合计', (budgetData.labor.expertTotalWan || 0).toFixed(2)]
+    ]
+    const wsExpert = XLSX.utils.aoa_to_sheet(expertData)
+    XLSX.utils.book_append_sheet(wb, wsExpert, '专家咨询费')
+  }
+  
+  // 14. 间接费用
+  const indirectData = [
+    ['间接费用'],
+    ['金额(万元)', '说明'],
+    [(budgetData.indirect.totalWan || 0).toFixed(2), budgetData.indirect.description || '']
+  ]
+  const wsIndirect = XLSX.utils.aoa_to_sheet(indirectData)
+  XLSX.utils.book_append_sheet(wb, wsIndirect, '间接费用')
+  
+  // 导出文件
+  const fileName = `项目预算申报书_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.xlsx`
+  XLSX.writeFile(wb, fileName)
 }
 
 const triggerImport = () => {
@@ -219,11 +517,21 @@ const clearData = () => {
     })
     Object.assign(budgetData.travel, {
       travels: [{ city: '', purpose: '', transport: 0, accommodation: 0, food: 0, localTransport: 80, days: 1, people: 1, times: 1 }],
-      totalWan: 0
+      totalWan: 0,
+      plannerConfig: {
+        targetAmount: 5,
+        tolerancePercent: 15,
+        cityConfigs: []
+      }
     })
     Object.assign(budgetData.meeting, {
       meetings: [{ name: '', times: 1, days: 1, attendees: 1, standard: 0.055 }],
-      totalWan: 0
+      totalWan: 0,
+      plannerConfig: {
+        targetAmount: 2,
+        tolerancePercent: 15,
+        meetingConfigs: []
+      }
     })
     Object.assign(budgetData.international, {
       exchanges: [{ content: '', country: '', people: 1, days: 1, amount: 0, description: '' }],
@@ -248,11 +556,21 @@ const clearData = () => {
     })
     Object.assign(budgetData.labor, {
       personnels: [{ type: '', count: 1, months: 1, monthlyCost: 0, description: '' }],
-      experts: [{ type: '', count: 1, unitPrice: 0, description: '' }],
+      experts: [{ name: '', people: 5, days: 1, times: 1, standard: 2800 }],
       personnelUnit: 'wan',
       expertUnit: 'wan',
       personnelTotalWan: 0,
-      expertTotalWan: 0
+      expertTotalWan: 0,
+      plannerConfig: {
+        targetAmount: 10,
+        tolerancePercent: 15,
+        personnelConfigs: []
+      },
+      expertPlannerConfig: {
+        targetAmount: 2,
+        tolerancePercent: 15,
+        expertConfigs: []
+      }
     })
     Object.assign(budgetData.indirect, {
       amount: 0,
@@ -274,7 +592,10 @@ const clearData = () => {
 
     <div class="toolbar">
       <button class="btn btn-primary" @click="exportData">
-        📤 导出数据
+        📤 导出 JSON
+      </button>
+      <button class="btn btn-excel" @click="exportToExcel">
+        📊 导出 Excel
       </button>
       <button class="btn btn-success" @click="triggerImport">
         📥 导入数据
@@ -314,7 +635,7 @@ const clearData = () => {
       <PublicationFee v-else-if="activeTab === 'publication'" v-model="budgetData.publication" :current-total-exclude-print="totalExcludePrint" />
       <OtherFee v-else-if="activeTab === 'other'" v-model="budgetData.other" />
       <LaborFee v-else-if="activeTab === 'labor'" v-model="budgetData.labor" />
-      <IndirectFee v-else-if="activeTab === 'indirect'" v-model="budgetData.indirect" />
+      <IndirectFee v-else-if="activeTab === 'indirect'" v-model="budgetData.indirect" :direct-total="directTotal" :purchase-equipment-total="purchaseEquipmentTotal" />
     </main>
 
     <footer class="app-footer">

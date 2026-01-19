@@ -209,13 +209,18 @@
             <td class="percent-display">{{ formatPercent(expertTotal) }}</td>
             <td class="desc-cell">专家咨询费参照财政部关于印发《中央财政科研项目专家咨询费管理办法》的通知 财科教（2017）128号</td>
           </tr>
-          <tr>
+          <tr :class="{ 'warning-row': indirectExceeded }">
             <td>17</td>
             <td>（二）间接费用</td>
             <td class="ratio-cell">按实际计算</td>
             <td class="amount-display">{{ formatNumber(indirectTotal) }}</td>
             <td class="percent-display">{{ formatPercent(indirectTotal) }}</td>
-            <td class="desc-cell">间接费用的计算基数是国拨经费中直接费用扣除设备购置费后的金额（一）500万元及以下部分为30%；（二）超过500万元至1000万元的部分为25%；（三）超过1000万元以上的部分为20%</td>
+            <td class="desc-cell">
+              间接费用的计算基数是国拨经费中直接费用扣除设备购置费后的金额（一）500万元及以下部分为30%；（二）超过500万元至1000万元的部分为25%；（三）超过1000万元以上的部分为20%
+              <br>
+              <span v-if="indirectExceeded" class="warning-text">（当前{{ formatNumber(indirectTotal) }}万元，上限{{ formatNumber(maxIndirectFee) }}万元，超出{{ formatNumber(indirectTotal - maxIndirectFee) }}万元）</span>
+              <span v-else-if="directTotal > 0" class="success-text">（上限{{ formatNumber(maxIndirectFee) }}万元，符合要求）</span>
+            </td>
           </tr>
           <tr class="total-row">
             <td></td>
@@ -300,6 +305,19 @@ const travelMeetingExceeded = computed(() => {
 const laborExceeded = computed(() => {
   if (grandTotal.value <= 0) return false
   return (laborTotal.value / grandTotal.value) > 0.35
+})
+
+const indirectBase = computed(() => {
+  return directTotal.value - purchaseEquipmentTotal.value
+})
+
+const maxIndirectFee = computed(() => {
+  return calcMaxIndirectForBase(indirectBase.value)
+})
+
+const indirectExceeded = computed(() => {
+  if (maxIndirectFee.value <= 0) return false
+  return indirectTotal.value > maxIndirectFee.value
 })
 
 const calcMaxIndirectForBase = (base) => {

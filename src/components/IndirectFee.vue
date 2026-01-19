@@ -92,6 +92,35 @@
     <div class="tip-box">
       <strong>提示：</strong>间接费用一般按照直接费用扣除设备购置费后的一定比例核定。
     </div>
+
+    <!-- 校验提示 -->
+    <div v-if="directTotal > 0" class="validation-box" :class="{ 'validation-error': isExceeded, 'validation-success': !isExceeded }">
+      <div class="validation-title">{{ isExceeded ? '⚠️ 超出上限' : '✅ 校验通过' }}</div>
+      <div class="validation-content">
+        <div class="validation-item">
+          <span class="validation-label">直接费用：</span>
+          <span class="validation-value">{{ formatNumber(directTotal) }} 万元</span>
+        </div>
+        <div class="validation-item">
+          <span class="validation-label">设备购置费：</span>
+          <span class="validation-value">{{ formatNumber(purchaseEquipmentTotal) }} 万元</span>
+        </div>
+        <div class="validation-item">
+          <span class="validation-label">计算基数：</span>
+          <span class="validation-value">{{ formatNumber(indirectBase) }} 万元</span>
+          <span class="validation-hint">(直接费用 - 设备购置费)</span>
+        </div>
+        <div class="validation-item highlight">
+          <span class="validation-label">间接费用上限：</span>
+          <span class="validation-value">{{ formatNumber(maxIndirectFee) }} 万元</span>
+        </div>
+        <div class="validation-item" :class="{ 'exceeded': isExceeded }">
+          <span class="validation-label">当前间接费用：</span>
+          <span class="validation-value">{{ formatNumber(totalWan) }} 万元</span>
+          <span v-if="isExceeded" class="validation-warning">（超出 {{ formatNumber(totalWan - maxIndirectFee) }} 万元）</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -106,6 +135,14 @@ const props = defineProps({
       unit: 'wan',
       description: ''
     })
+  },
+  directTotal: {
+    type: Number,
+    default: 0
+  },
+  purchaseEquipmentTotal: {
+    type: Number,
+    default: 0
   }
 })
 
@@ -176,6 +213,19 @@ const applyCalculatedAmount = () => {
 
 const totalWan = computed(() => {
   return unit.value === 'yuan' ? amount.value / 10000 : amount.value
+})
+
+const indirectBase = computed(() => {
+  return props.directTotal - props.purchaseEquipmentTotal
+})
+
+const maxIndirectFee = computed(() => {
+  return calcMaxIndirectForBase(indirectBase.value)
+})
+
+const isExceeded = computed(() => {
+  if (maxIndirectFee.value <= 0) return false
+  return totalWan.value > maxIndirectFee.value
 })
 
 watch([amount, unit, description], () => {
@@ -438,5 +488,85 @@ watch(() => props.modelValue, (newVal) => {
 .apply-section {
   margin-top: 15px;
   text-align: center;
+}
+
+.validation-box {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid;
+}
+
+.validation-success {
+  background: #e8f5e9;
+  border-color: #a5d6a7;
+}
+
+.validation-error {
+  background: #ffebee;
+  border-color: #ef9a9a;
+}
+
+.validation-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.validation-success .validation-title {
+  color: #2e7d32;
+}
+
+.validation-error .validation-title {
+  color: #c62828;
+}
+
+.validation-content {
+  font-size: 13px;
+}
+
+.validation-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 4px 0;
+}
+
+.validation-item:last-child {
+  margin-bottom: 0;
+}
+
+.validation-item.highlight {
+  background: rgba(0, 0, 0, 0.05);
+  margin: 8px -10px;
+  padding: 8px 10px;
+  border-radius: 4px;
+}
+
+.validation-item.exceeded {
+  color: #c62828;
+  font-weight: 600;
+}
+
+.validation-label {
+  color: #555;
+  min-width: 100px;
+}
+
+.validation-value {
+  font-weight: 500;
+  color: #333;
+}
+
+.validation-hint {
+  font-size: 11px;
+  color: #888;
+}
+
+.validation-warning {
+  color: #c62828;
+  font-size: 12px;
+  font-weight: 600;
 }
 </style>

@@ -88,6 +88,15 @@ body {
   background: #c53030;
 }
 
+.btn-excel {
+  background: #217346;
+  color: white;
+}
+
+.btn-excel:hover {
+  background: #1a5c38;
+}
+
 .btn-small {
   padding: 6px 12px;
   font-size: 12px;
