@@ -60,15 +60,6 @@
       </div>
     </div>
 
-    <div class="city-preset">
-      <label>快速添加：</label>
-      <select v-model="selectedCity" @change="applyCity">
-        <option value="">-- 选择城市 --</option>
-        <option v-for="city in citiesData" :key="city.city" :value="city.city">
-          {{ city.city }} (车票{{ city.transport }}元, 住宿{{ city.accommodation }}元/天)
-        </option>
-      </select>
-    </div>
     <div class="table-container">
       <table>
         <thead>
@@ -115,7 +106,18 @@
         </tbody>
       </table>
     </div>
-    <button class="btn btn-primary btn-small add-row-btn" @click="addRow">+ 新增行</button>
+    <div class="row-actions">
+      <button class="btn btn-primary btn-small" @click="addRow">+ 新增行</button>
+      <div class="city-preset">
+        <label>快速添加：</label>
+        <select v-model="selectedCity" @change="applyCity">
+          <option value="">-- 选择城市 --</option>
+          <option v-for="city in citiesData" :key="city.city" :value="city.city">
+            {{ city.city }} (车票{{ city.transport }}元, 住宿{{ city.accommodation }}元/天)
+          </option>
+        </select>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -336,11 +338,17 @@ watch(() => props.modelValue, (newVal) => {
   color: #888;
 }
 
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 10px;
+}
+
 .city-preset {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
 }
 
 .city-preset label {

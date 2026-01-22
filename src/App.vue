@@ -35,6 +35,22 @@ const tabs = [
 ]
 
 const budgetData = reactive({
+  otherFunding: {
+    equipment: 0,
+    purchaseEquipment: 0,
+    trialEquipment: 0,
+    material: 0,
+    testing: 0,
+    fuel: 0,
+    travel: 0,
+    meeting: 0,
+    international: 0,
+    publication: 0,
+    other: 0,
+    personnel: 0,
+    expert: 0,
+    indirect: 0
+  },
   equipment: {
     purchaseEquipments: [],
     trialEquipments: [],
@@ -194,30 +210,48 @@ const exportData = () => {
 const exportToExcel = () => {
   const wb = XLSX.utils.book_new()
   
+  // 计算其他资金来源合计
+  const of = budgetData.otherFunding || {}
+  const otherEquipment = (of.purchaseEquipment || 0) + (of.trialEquipment || 0)
+  const otherBusiness = (of.material || 0) + (of.testing || 0) + (of.fuel || 0) + 
+                        (of.travel || 0) + (of.meeting || 0) + (of.international || 0) + 
+                        (of.publication || 0) + (of.other || 0)
+  const otherLabor = (of.personnel || 0) + (of.expert || 0)
+  const otherDirect = otherEquipment + otherBusiness + otherLabor
+  const otherTotal = otherDirect + (of.indirect || 0)
+  const combinedTotal = totalExcludePrint.value + otherTotal
+
+  // 计算业务费合计（国拨）
+  const businessTotal = (budgetData.material.totalWan || 0) + (budgetData.testing.totalWan || 0) + 
+                        (budgetData.fuel.totalWan || 0) + (budgetData.travel.totalWan || 0) + 
+                        (budgetData.meeting.totalWan || 0) + (budgetData.international.totalWan || 0) + 
+                        (budgetData.publication.totalWan || 0) + (budgetData.other.totalWan || 0)
+
   // 1. 经费测算汇总表
   const summaryData = [
     ['经费测算汇总表'],
-    ['序号', '科目名称', '金额(万元)'],
-    ['1', '设备费', ((budgetData.equipment.purchaseTotalWan || 0) + (budgetData.equipment.trialTotalWan || 0)).toFixed(2)],
-    ['1.1', '  购置设备', (budgetData.equipment.purchaseTotalWan || 0).toFixed(2)],
-    ['1.2', '  试制设备', (budgetData.equipment.trialTotalWan || 0).toFixed(2)],
-    ['2', '材料费', (budgetData.material.totalWan || 0).toFixed(2)],
-    ['3', '测试化验加工费', (budgetData.testing.totalWan || 0).toFixed(2)],
-    ['4', '燃料动力费', (budgetData.fuel.totalWan || 0).toFixed(2)],
-    ['5', '差旅费', (budgetData.travel.totalWan || 0).toFixed(2)],
-    ['6', '会议费', (budgetData.meeting.totalWan || 0).toFixed(2)],
-    ['7', '国际合作与交流费', (budgetData.international.totalWan || 0).toFixed(2)],
-    ['8', '出版文献费', (budgetData.publication.totalWan || 0).toFixed(2)],
-    ['9', '其他费用', (budgetData.other.totalWan || 0).toFixed(2)],
-    ['10', '劳务费', ((budgetData.labor.personnelTotalWan || 0) + (budgetData.labor.expertTotalWan || 0)).toFixed(2)],
-    ['10.1', '  人员劳务费', (budgetData.labor.personnelTotalWan || 0).toFixed(2)],
-    ['10.2', '  专家咨询费', (budgetData.labor.expertTotalWan || 0).toFixed(2)],
-    ['', '直接费用合计', directTotal.value.toFixed(2)],
-    ['11', '间接费用', (budgetData.indirect.totalWan || 0).toFixed(2)],
-    ['', '总计', totalExcludePrint.value.toFixed(2)]
+    ['序号', '科目名称', '国拨(万)', '其他来源(万)', '合计(万)'],
+    ['1', '（一）直接费用', directTotal.value.toFixed(2), otherDirect.toFixed(2), (directTotal.value + otherDirect).toFixed(2)],
+    ['2', '1.设备费', ((budgetData.equipment.purchaseTotalWan || 0) + (budgetData.equipment.trialTotalWan || 0)).toFixed(2), otherEquipment.toFixed(2), ((budgetData.equipment.purchaseTotalWan || 0) + (budgetData.equipment.trialTotalWan || 0) + otherEquipment).toFixed(2)],
+    ['3', '  1.1 购置设备费', (budgetData.equipment.purchaseTotalWan || 0).toFixed(2), (of.purchaseEquipment || 0).toFixed(2), ((budgetData.equipment.purchaseTotalWan || 0) + (of.purchaseEquipment || 0)).toFixed(2)],
+    ['4', '  1.2 试制设备费', (budgetData.equipment.trialTotalWan || 0).toFixed(2), (of.trialEquipment || 0).toFixed(2), ((budgetData.equipment.trialTotalWan || 0) + (of.trialEquipment || 0)).toFixed(2)],
+    ['5', '2.业务费', businessTotal.toFixed(2), otherBusiness.toFixed(2), (businessTotal + otherBusiness).toFixed(2)],
+    ['6', '  2.1 材料费', (budgetData.material.totalWan || 0).toFixed(2), (of.material || 0).toFixed(2), ((budgetData.material.totalWan || 0) + (of.material || 0)).toFixed(2)],
+    ['7', '  2.2 测试化验加工费', (budgetData.testing.totalWan || 0).toFixed(2), (of.testing || 0).toFixed(2), ((budgetData.testing.totalWan || 0) + (of.testing || 0)).toFixed(2)],
+    ['8', '  2.3 燃料动力费', (budgetData.fuel.totalWan || 0).toFixed(2), (of.fuel || 0).toFixed(2), ((budgetData.fuel.totalWan || 0) + (of.fuel || 0)).toFixed(2)],
+    ['9', '  2.4 差旅费', (budgetData.travel.totalWan || 0).toFixed(2), (of.travel || 0).toFixed(2), ((budgetData.travel.totalWan || 0) + (of.travel || 0)).toFixed(2)],
+    ['10', '  2.5 会议费', (budgetData.meeting.totalWan || 0).toFixed(2), (of.meeting || 0).toFixed(2), ((budgetData.meeting.totalWan || 0) + (of.meeting || 0)).toFixed(2)],
+    ['11', '  2.6 国际合作与交流费', (budgetData.international.totalWan || 0).toFixed(2), (of.international || 0).toFixed(2), ((budgetData.international.totalWan || 0) + (of.international || 0)).toFixed(2)],
+    ['12', '  2.7 出版文献费', (budgetData.publication.totalWan || 0).toFixed(2), (of.publication || 0).toFixed(2), ((budgetData.publication.totalWan || 0) + (of.publication || 0)).toFixed(2)],
+    ['13', '  2.8 其他费用', (budgetData.other.totalWan || 0).toFixed(2), (of.other || 0).toFixed(2), ((budgetData.other.totalWan || 0) + (of.other || 0)).toFixed(2)],
+    ['14', '3.劳务费', ((budgetData.labor.personnelTotalWan || 0) + (budgetData.labor.expertTotalWan || 0)).toFixed(2), otherLabor.toFixed(2), ((budgetData.labor.personnelTotalWan || 0) + (budgetData.labor.expertTotalWan || 0) + otherLabor).toFixed(2)],
+    ['15', '  3.1 人员劳务费', (budgetData.labor.personnelTotalWan || 0).toFixed(2), (of.personnel || 0).toFixed(2), ((budgetData.labor.personnelTotalWan || 0) + (of.personnel || 0)).toFixed(2)],
+    ['16', '  3.2 专家咨询费', (budgetData.labor.expertTotalWan || 0).toFixed(2), (of.expert || 0).toFixed(2), ((budgetData.labor.expertTotalWan || 0) + (of.expert || 0)).toFixed(2)],
+    ['17', '（二）间接费用', (budgetData.indirect.totalWan || 0).toFixed(2), (of.indirect || 0).toFixed(2), ((budgetData.indirect.totalWan || 0) + (of.indirect || 0)).toFixed(2)],
+    ['', '合计', totalExcludePrint.value.toFixed(2), otherTotal.toFixed(2), combinedTotal.toFixed(2)]
   ]
   const wsSummary = XLSX.utils.aoa_to_sheet(summaryData)
-  wsSummary['!cols'] = [{ wch: 8 }, { wch: 20 }, { wch: 15 }]
+  wsSummary['!cols'] = [{ wch: 8 }, { wch: 20 }, { wch: 12 }, { wch: 14 }, { wch: 12 }]
   XLSX.utils.book_append_sheet(wb, wsSummary, '经费汇总')
   
   // 2. 设备费-购置设备
@@ -310,9 +344,26 @@ const exportToExcel = () => {
   
   // 7. 差旅费
   if (budgetData.travel.travels?.length > 0) {
+    // 获取差旅费计算公式配置
+    const travelFormula = budgetData.travel.formula || {
+      transportMultiplier: 1,
+      accommodationDays: 'days-1',
+      foodDays: 'days',
+      localTransportDays: 'days'
+    }
+    const getDaysValue = (days, mode) => mode === 'days-1' ? Math.max(0, days - 1) : days
+    const calcTravelAmount = (item) => {
+      const days = item.days || 1
+      const transportCost = (item.transport || 0) * travelFormula.transportMultiplier
+      const accCost = (item.accommodation || 0) * getDaysValue(days, travelFormula.accommodationDays)
+      const foodCost = (item.food || 0) * getDaysValue(days, travelFormula.foodDays)
+      const localCost = (item.localTransport || 0) * getDaysValue(days, travelFormula.localTransportDays)
+      const tripCost = transportCost + accCost + foodCost + localCost
+      return (tripCost * (item.people || 1) * (item.times || 1) / 10000).toFixed(4)
+    }
     const travelData = [
       ['差旅费明细'],
-      ['序号', '出差地点', '出差事由', '交通费', '住宿费', '伙食费', '市内交通', '天数', '人数', '次数', '金额'],
+      ['序号', '出差地点', '出差事由', '交通费', '住宿费', '伙食费', '市内交通', '天数', '人数', '次数', '金额(万)'],
       ...budgetData.travel.travels.map((item, i) => [
         i + 1,
         item.city || '',
@@ -324,7 +375,7 @@ const exportToExcel = () => {
         item.days || 0,
         item.people || 0,
         item.times || 0,
-        ''
+        calcTravelAmount(item)
       ]),
       ['', '', '', '', '', '', '', '', '', '合计', (budgetData.travel.totalWan || 0).toFixed(2)]
     ]
@@ -577,6 +628,22 @@ const clearData = () => {
       unit: 'wan',
       description: '',
       totalWan: 0
+    })
+    Object.assign(budgetData.otherFunding, {
+      equipment: 0,
+      purchaseEquipment: 0,
+      trialEquipment: 0,
+      material: 0,
+      testing: 0,
+      fuel: 0,
+      travel: 0,
+      meeting: 0,
+      international: 0,
+      publication: 0,
+      other: 0,
+      personnel: 0,
+      expert: 0,
+      indirect: 0
     })
     saveToLocalStorage()
   }

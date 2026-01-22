@@ -6,85 +6,130 @@
         <button class="modal-close" @click="close">×</button>
       </div>
       <div class="modal-body">
-        <div v-if="expertConfigs.length === 0" class="no-data-hint">
-          请先在表格中添加会议内容和人均标准
+        <div class="planner-row">
+          <div class="planner-field">
+            <label>目标金额(万)</label>
+            <input type="number" v-model.number="targetAmount" min="0" step="0.1" class="input-small">
+          </div>
+          <div class="planner-field">
+            <label>容差范围</label>
+            <select v-model.number="tolerancePercent" class="input-small">
+              <option :value="5">±5%</option>
+              <option :value="10">±10%</option>
+              <option :value="15">±15%</option>
+              <option :value="20">±20%</option>
+            </select>
+          </div>
         </div>
-        <template v-else>
-          <div class="planner-row">
-            <div class="planner-field">
-              <label>目标金额(万)</label>
-              <input type="number" v-model.number="targetAmount" min="0" step="0.1" class="input-small">
-            </div>
-            <div class="planner-field">
-              <label>容差范围</label>
-              <select v-model.number="tolerancePercent" class="input-small">
-                <option :value="5">±5%</option>
-                <option :value="10">±10%</option>
-                <option :value="15">±15%</option>
-                <option :value="20">±20%</option>
-              </select>
-            </div>
+        <div class="planner-step">
+          <div class="step-title-row">
+            <span class="step-title">各会议参数设置（人数为奇数）</span>
+            <button class="btn btn-small btn-add" @click="addTempRow">+ 添加临时行</button>
           </div>
-          <div class="planner-step">
-            <div class="step-title">各会议参数范围（人数为奇数）</div>
-            <div class="expert-config-list">
-              <div v-for="(config, index) in expertConfigs" :key="index" class="expert-config-item">
-                <span class="expert-name">{{ config.name }}</span>
-                <span class="expert-cost">{{ config.standard }}元/人/天</span>
-                <div class="config-ranges">
-                  <div class="range-group">
-                    <label>人数</label>
-                    <input type="number" v-model.number="config.minPeople" min="1" step="2" class="input-tiny">
-                    <span>~</span>
-                    <input type="number" v-model.number="config.maxPeople" min="1" step="2" class="input-tiny">
-                  </div>
-                  <div class="range-group">
-                    <label>次数</label>
-                    <input type="number" v-model.number="config.minTimes" min="1" class="input-tiny">
-                    <span>~</span>
-                    <input type="number" v-model.number="config.maxTimes" min="1" class="input-tiny">
-                  </div>
+          <div class="expert-config-table">
+            <div class="config-header">
+              <span class="col-enable">参与</span>
+              <span class="col-name">会议内容</span>
+              <span class="col-cost">标准</span>
+              <span class="col-days">天数</span>
+              <span class="col-param">人数</span>
+              <span class="col-param">次数</span>
+              <span class="col-action">操作</span>
+            </div>
+            <div v-for="(config, index) in expertConfigs" :key="config.id || index" class="config-row" :class="{ 'row-disabled': !config.enabled, 'row-temp': config.isTemp }">
+              <div class="col-enable">
+                <input type="checkbox" v-model="config.enabled" title="是否参与规划">
+              </div>
+              <div class="col-name">
+                <span v-if="!config.isTemp" class="name-value">{{ config.name }}</span>
+                <input v-else type="text" v-model="config.name" placeholder="会议名称" class="input-name">
+              </div>
+              <div class="col-cost">
+                <span v-if="!config.isTemp" class="cost-value">{{ config.standard }}元</span>
+                <input v-else type="number" v-model.number="config.standard" min="0" step="100" class="input-cost" placeholder="元">
+              </div>
+              <div class="col-days">
+                <span v-if="!config.isTemp" class="days-value">{{ config.days }}天</span>
+                <input v-else type="number" v-model.number="config.days" min="1" step="1" class="input-days">
+              </div>
+              <div class="col-param">
+                <div class="param-control">
+                  <label class="lock-label" :class="{ locked: config.peopleLocked }">
+                    <input type="checkbox" v-model="config.peopleLocked" title="锁定为固定值">
+                    <span class="lock-icon">{{ config.peopleLocked ? '🔒' : '🔓' }}</span>
+                  </label>
+                  <template v-if="config.peopleLocked">
+                    <input type="number" v-model.number="config.peopleFixed" min="0" step="2" class="input-tiny" :disabled="!config.enabled">
+                  </template>
+                  <template v-else>
+                    <input type="number" v-model.number="config.minPeople" min="1" step="2" class="input-tiny" :disabled="!config.enabled">
+                    <span class="range-sep">~</span>
+                    <input type="number" v-model.number="config.maxPeople" min="1" step="2" class="input-tiny" :disabled="!config.enabled">
+                  </template>
                 </div>
+              </div>
+              <div class="col-param">
+                <div class="param-control">
+                  <label class="lock-label" :class="{ locked: config.timesLocked }">
+                    <input type="checkbox" v-model="config.timesLocked" title="锁定为固定值">
+                    <span class="lock-icon">{{ config.timesLocked ? '🔒' : '🔓' }}</span>
+                  </label>
+                  <template v-if="config.timesLocked">
+                    <input type="number" v-model.number="config.timesFixed" min="0" step="1" class="input-tiny" :disabled="!config.enabled">
+                  </template>
+                  <template v-else>
+                    <input type="number" v-model.number="config.minTimes" min="1" step="1" class="input-tiny" :disabled="!config.enabled">
+                    <span class="range-sep">~</span>
+                    <input type="number" v-model.number="config.maxTimes" min="1" step="1" class="input-tiny" :disabled="!config.enabled">
+                  </template>
+                </div>
+              </div>
+              <div class="col-action">
+                <button v-if="config.isTemp" class="btn-delete" @click="removeTempRow(index)" title="删除临时行">×</button>
               </div>
             </div>
           </div>
-          <div class="planner-actions">
-            <button class="btn btn-primary btn-small" @click="generateCombinations" :disabled="!canGenerate || isGenerating">
-              {{ isGenerating ? '计算中...' : '生成方案' }}
-            </button>
-            <span v-if="generationTime" class="generation-time">耗时: {{ generationTime }}ms</span>
+          <div class="config-hint">
+            💡 提示：勾选"参与"列控制是否参与规划；点击🔓可锁定变量为固定值（设为0表示不参与）
           </div>
-          
-          <!-- 方案结果 -->
-          <div v-if="combinations.length > 0" class="combinations-result">
-            <div class="step-title">选择方案 (共{{ combinations.length }}个)</div>
-            <div class="combination-list">
-              <div 
-                v-for="(combo, index) in combinations" 
-                :key="index" 
-                class="combination-card"
-                @click="selectCombination(combo)"
-              >
-                <div class="combo-header">
-                  <span class="combo-title">方案 {{ index + 1 }}</span>
-                  <span class="combo-total">{{ combo.total.toFixed(2) }} 万元</span>
-                  <span class="combo-deviation" :class="getDeviationClass(combo.deviation)">
-                    {{ combo.deviation > 0 ? '+' : '' }}{{ (combo.deviation * 100).toFixed(1) }}%
-                  </span>
-                </div>
-                <div class="combo-details">
-                  <div v-for="(e, ei) in combo.experts" :key="ei" class="combo-expert">
-                    {{ e.name }}：{{ e.people }}人×{{ e.days }}天×{{ e.times }}次 = {{ e.amount.toFixed(2) }}万
-                  </div>
-                </div>
-                <button class="btn btn-success btn-small">选择</button>
+        </div>
+        <div class="planner-actions">
+          <button class="btn btn-primary btn-small" @click="generateCombinations" :disabled="!canGenerate || isGenerating">
+            {{ isGenerating ? '计算中...' : '生成方案' }}
+          </button>
+          <span v-if="generationTime" class="generation-time">耗时: {{ generationTime }}ms</span>
+        </div>
+        
+        <!-- 方案结果 -->
+        <div v-if="combinations.length > 0" class="combinations-result">
+          <div class="step-title">选择方案 (共{{ combinations.length }}个)</div>
+          <div class="combination-list">
+            <div 
+              v-for="(combo, index) in combinations" 
+              :key="index" 
+              class="combination-card"
+              @click="selectCombination(combo)"
+            >
+              <div class="combo-header">
+                <span class="combo-title">方案 {{ index + 1 }}</span>
+                <span class="combo-total">{{ combo.total.toFixed(2) }} 万元</span>
+                <span class="combo-deviation" :class="getDeviationClass(combo.deviation)">
+                  {{ combo.deviation > 0 ? '+' : '' }}{{ (combo.deviation * 100).toFixed(1) }}%
+                </span>
               </div>
+              <div class="combo-details">
+                <div v-for="(e, ei) in combo.experts" :key="ei" class="combo-expert" :class="{ 'item-zero': e.people === 0 || e.times === 0 }">
+                  {{ e.name }}：{{ e.people }}人×{{ e.days }}天×{{ e.times }}次 = {{ e.amount.toFixed(2) }}万
+                  <span v-if="e.isTemp" class="temp-badge">临时</span>
+                </div>
+              </div>
+              <button class="btn btn-success btn-small">选择</button>
             </div>
           </div>
-          <div v-if="noSolution" class="no-solution">
-            未找到合适方案，请调整参数范围
-          </div>
-        </template>
+        </div>
+        <div v-if="noSolution" class="no-solution">
+          未找到合适方案，请调整参数范围
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-small" @click="close">关闭</button>
@@ -124,6 +169,7 @@ const noSolution = ref(false)
 const expertConfigs = ref([])
 const isGenerating = ref(false)
 const generationTime = ref(0)
+let tempIdCounter = 0
 
 // 算法参数
 const SAMPLE_COUNT = 3000
@@ -135,35 +181,99 @@ const availableExperts = computed(() => {
   return props.experts.filter(e => e.name && e.standard > 0 && e.days > 0)
 })
 
-const canGenerate = computed(() => {
-  if (targetAmount.value <= 0 || expertConfigs.value.length === 0) {
-    return false
-  }
-  return expertConfigs.value.every(c => 
-    c.minPeople >= 1 && c.maxPeople >= c.minPeople &&
-    c.minTimes >= 1 && c.maxTimes >= c.minTimes
-  )
+const enabledConfigs = computed(() => {
+  return expertConfigs.value.filter(c => c.enabled)
 })
+
+const canGenerate = computed(() => {
+  if (targetAmount.value <= 0) return false
+  const enabled = enabledConfigs.value
+  if (enabled.length === 0) return false
+  
+  return enabled.every(c => {
+    if (c.peopleLocked && c.peopleFixed < 0) return false
+    if (c.timesLocked && c.timesFixed < 0) return false
+    if (!c.peopleLocked && (c.minPeople < 1 || c.maxPeople < c.minPeople)) return false
+    if (!c.timesLocked && (c.minTimes < 1 || c.maxTimes < c.minTimes)) return false
+    return true
+  })
+})
+
+const getEffectiveRange = (config, field) => {
+  const lockedKey = field + 'Locked'
+  const fixedKey = field + 'Fixed'
+  const minKey = 'min' + field.charAt(0).toUpperCase() + field.slice(1)
+  const maxKey = 'max' + field.charAt(0).toUpperCase() + field.slice(1)
+  
+  if (config[lockedKey]) {
+    const fixed = config[fixedKey]
+    return { min: fixed, max: fixed }
+  }
+  return { min: config[minKey], max: config[maxKey] }
+}
 
 const updateExpertConfigs = () => {
   const available = availableExperts.value
   const savedConfigs = props.plannerConfig?.expertConfigs || []
   
-  expertConfigs.value = available.map(e => {
-    const savedConfig = savedConfigs.find(c => c.name === e.name)
-    const existing = expertConfigs.value.find(c => c.name === e.name)
+  const tempRows = expertConfigs.value.filter(c => c.isTemp)
+  
+  const newConfigs = available.map(e => {
+    const savedConfig = savedConfigs.find(c => c.name === e.name && !c.isTemp)
+    const existing = expertConfigs.value.find(c => c.name === e.name && !c.isTemp)
     
     return {
+      id: e.name + '_' + Date.now(),
       name: e.name,
       days: e.days,
       standard: e.standard,
+      isTemp: false,
+      enabled: savedConfig?.enabled ?? existing?.enabled ?? true,
+      peopleLocked: savedConfig?.peopleLocked ?? existing?.peopleLocked ?? false,
+      peopleFixed: savedConfig?.peopleFixed ?? existing?.peopleFixed ?? 5,
       minPeople: savedConfig?.minPeople ?? existing?.minPeople ?? 3,
       maxPeople: savedConfig?.maxPeople ?? existing?.maxPeople ?? 9,
+      timesLocked: savedConfig?.timesLocked ?? existing?.timesLocked ?? false,
+      timesFixed: savedConfig?.timesFixed ?? existing?.timesFixed ?? 1,
       minTimes: savedConfig?.minTimes ?? existing?.minTimes ?? 1,
       maxTimes: savedConfig?.maxTimes ?? existing?.maxTimes ?? 3,
       expertItem: e
     }
   })
+  
+  const savedTempRows = savedConfigs.filter(c => c.isTemp)
+  for (const saved of savedTempRows) {
+    if (!tempRows.find(t => t.id === saved.id)) {
+      tempRows.push({ ...saved, expertItem: null })
+    }
+  }
+  
+  expertConfigs.value = [...newConfigs, ...tempRows]
+}
+
+const addTempRow = () => {
+  tempIdCounter++
+  expertConfigs.value.push({
+    id: 'temp_' + tempIdCounter + '_' + Date.now(),
+    name: '',
+    days: 1,
+    standard: 2800,
+    isTemp: true,
+    enabled: true,
+    peopleLocked: false,
+    peopleFixed: 5,
+    minPeople: 3,
+    maxPeople: 9,
+    timesLocked: false,
+    timesFixed: 1,
+    minTimes: 1,
+    maxTimes: 3,
+    expertItem: null
+  })
+}
+
+const removeTempRow = (index) => {
+  expertConfigs.value.splice(index, 1)
 }
 
 const emitConfigUpdate = () => {
@@ -171,9 +281,18 @@ const emitConfigUpdate = () => {
     targetAmount: targetAmount.value,
     tolerancePercent: tolerancePercent.value,
     expertConfigs: expertConfigs.value.map(c => ({
+      id: c.id,
       name: c.name,
+      isTemp: c.isTemp,
+      days: c.days,
+      standard: c.standard,
+      enabled: c.enabled,
+      peopleLocked: c.peopleLocked,
+      peopleFixed: c.peopleFixed,
       minPeople: c.minPeople,
       maxPeople: c.maxPeople,
+      timesLocked: c.timesLocked,
+      timesFixed: c.timesFixed,
       minTimes: c.minTimes,
       maxTimes: c.maxTimes
     }))
@@ -209,61 +328,69 @@ const getDeviationClass = (deviation) => {
   return 'deviation-warn'
 }
 
-const calculateSolutionCost = (solution) => {
+const calculateSolutionCost = (solution, configs) => {
   let total = 0
   for (let i = 0; i < solution.length; i++) {
     const { people, times } = solution[i]
-    const config = expertConfigs.value[i]
+    const config = configs[i]
     total += (config.standard / 10000) * people * config.days * times
   }
   return total
 }
 
-const generateRandomSolution = () => {
+const generateRandomSolution = (configs) => {
   const solution = []
-  for (const config of expertConfigs.value) {
+  for (const config of configs) {
+    const peopleRange = getEffectiveRange(config, 'people')
+    const timesRange = getEffectiveRange(config, 'times')
+    
     // 生成奇数人数
-    let people = randomInt(config.minPeople, config.maxPeople)
-    if (people % 2 === 0) people = Math.max(config.minPeople, people - 1)
-    if (people % 2 === 0) people = Math.min(config.maxPeople, people + 1)
-    const times = randomInt(config.minTimes, config.maxTimes)
+    let people = randomInt(peopleRange.min, peopleRange.max)
+    if (!config.peopleLocked && people > 0 && people % 2 === 0) {
+      people = Math.max(peopleRange.min, people - 1)
+      if (people % 2 === 0) people = Math.min(peopleRange.max, people + 1)
+    }
+    const times = randomInt(timesRange.min, timesRange.max)
     solution.push({ people, times })
   }
   return solution
 }
 
 const randomInt = (min, max) => {
+  if (min > max) return min
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-const localOptimize = (solution, targetWan) => {
+const localOptimize = (solution, targetWan, configs) => {
   let currentSolution = solution.map(s => ({ ...s }))
-  let currentCost = calculateSolutionCost(currentSolution)
+  let currentCost = calculateSolutionCost(currentSolution, configs)
   let currentGap = Math.abs(currentCost - targetWan)
   
   for (let iter = 0; iter < LOCAL_OPT_ITERATIONS; iter++) {
     let improved = false
     
     for (let i = 0; i < currentSolution.length; i++) {
-      const config = expertConfigs.value[i]
+      const config = configs[i]
       const original = { ...currentSolution[i] }
       
-      // 人数调整步长为2（保持奇数）
-      const adjustments = [
-        { field: 'people', delta: 2 },
-        { field: 'people', delta: -2 },
-        { field: 'times', delta: 1 },
-        { field: 'times', delta: -1 }
-      ]
+      const adjustments = []
+      if (!config.peopleLocked) {
+        adjustments.push({ field: 'people', delta: 2 })
+        adjustments.push({ field: 'people', delta: -2 })
+      }
+      if (!config.timesLocked) {
+        adjustments.push({ field: 'times', delta: 1 })
+        adjustments.push({ field: 'times', delta: -1 })
+      }
       
       for (const adj of adjustments) {
         const newValue = original[adj.field] + adj.delta
+        const range = getEffectiveRange(config, adj.field)
         
-        if (adj.field === 'people' && (newValue < config.minPeople || newValue > config.maxPeople)) continue
-        if (adj.field === 'times' && (newValue < config.minTimes || newValue > config.maxTimes)) continue
+        if (newValue < range.min || newValue > range.max) continue
         
         currentSolution[i][adj.field] = newValue
-        const newCost = calculateSolutionCost(currentSolution)
+        const newCost = calculateSolutionCost(currentSolution, configs)
         const newGap = Math.abs(newCost - targetWan)
         
         if (newGap < currentGap) {
@@ -286,11 +413,14 @@ const localOptimize = (solution, targetWan) => {
 }
 
 const findBudgetCombinations = (targetWan) => {
+  const configs = enabledConfigs.value
+  if (configs.length === 0) return []
+  
   const candidates = []
   
   for (let i = 0; i < SAMPLE_COUNT; i++) {
-    const solution = generateRandomSolution()
-    const cost = calculateSolutionCost(solution)
+    const solution = generateRandomSolution(configs)
+    const cost = calculateSolutionCost(solution, configs)
     const gap = Math.abs(cost - targetWan)
     candidates.push({ solution, cost, gap })
   }
@@ -302,7 +432,7 @@ const findBudgetCombinations = (targetWan) => {
   const seenKeys = new Set()
   
   for (const candidate of bestCandidates) {
-    const result = localOptimize(candidate.solution, targetWan)
+    const result = localOptimize(candidate.solution, targetWan, configs)
     
     const key = result.solution.map(s => `${s.people}-${s.times}`).join('|')
     if (seenKeys.has(key)) continue
@@ -326,17 +456,21 @@ const findBudgetCombinations = (targetWan) => {
 }
 
 const formatResults = (results, targetWan) => {
+  const configs = enabledConfigs.value
+  
   return results.map(r => {
     const experts = r.solution.map((s, i) => {
-      const config = expertConfigs.value[i]
+      const config = configs[i]
       const amount = (config.standard / 10000) * s.people * config.days * s.times
       return {
-        name: config.name,
+        name: config.name || '(未命名)',
         people: s.people,
         days: config.days,
         times: s.times,
         amount: amount,
-        expertItem: config.expertItem
+        expertItem: config.expertItem,
+        isTemp: config.isTemp,
+        configId: config.id
       }
     })
     
@@ -375,9 +509,12 @@ const generateCombinations = () => {
 }
 
 const selectCombination = (combo) => {
-  if (!confirm('将更新表格中对应会议的人数和次数，是否继续？')) {
-    return
-  }
+  const hasTemp = combo.experts.some(e => e.isTemp)
+  const msg = hasTemp 
+    ? '将更新表格中对应会议的人数和次数。临时行数据需要手动添加到表格中。是否继续？'
+    : '将更新表格中对应会议的人数和次数，是否继续？'
+  
+  if (!confirm(msg)) return
   
   emit('select', combo)
   close()
@@ -401,8 +538,8 @@ const selectCombination = (combo) => {
 .modal-content {
   background: white;
   border-radius: 8px;
-  width: 650px;
-  max-width: 90%;
+  width: 800px;
+  max-width: 95%;
   max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
@@ -472,75 +609,184 @@ const selectCombination = (combo) => {
 }
 
 .input-tiny {
-  width: 50px !important;
+  width: 42px !important;
   text-align: center;
+  padding: 2px 4px !important;
 }
 
 .planner-step {
   margin-bottom: 10px;
 }
 
+.step-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 .step-title {
   font-size: 12px;
   font-weight: 500;
   color: #444;
-  margin-bottom: 6px;
 }
 
-.expert-config-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.btn-add {
+  background: #ff9800;
+  color: white;
 }
 
-.expert-config-item {
+.btn-add:hover {
+  background: #f57c00;
+}
+
+.expert-config-table {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.config-header {
   display: flex;
+  background: #f5f5f5;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.config-row {
+  display: flex;
+  padding: 8px 10px;
   align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
-  background: #fff3e0;
-  border-radius: 4px;
-  flex-wrap: wrap;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.expert-name {
+.config-row:last-child {
+  border-bottom: none;
+}
+
+.config-row:hover {
+  background: #fafafa;
+}
+
+.row-disabled {
+  opacity: 0.5;
+  background: #f9f9f9;
+}
+
+.row-temp {
+  background: #fff8e1;
+}
+
+.row-temp:hover {
+  background: #fff3c4;
+}
+
+.col-enable {
+  width: 40px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.col-name {
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.col-cost {
+  width: 60px;
+  flex-shrink: 0;
+}
+
+.col-days {
+  width: 50px;
+  flex-shrink: 0;
+}
+
+.col-param {
+  flex: 1;
+  min-width: 110px;
+}
+
+.col-action {
+  width: 40px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.name-value {
   font-weight: 500;
   color: #333;
-  min-width: 100px;
   font-size: 12px;
 }
 
-.expert-cost {
+.cost-value, .days-value {
   font-size: 11px;
   color: #666;
-  min-width: 90px;
 }
 
-.config-ranges {
-  display: flex;
-  gap: 12px;
+.input-name {
+  width: 90px !important;
 }
 
-.range-group {
+.input-cost {
+  width: 50px !important;
+  text-align: right;
+}
+
+.input-days {
+  width: 40px !important;
+  text-align: center;
+}
+
+.param-control {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
+  gap: 3px;
 }
 
-.range-group label {
-  color: #666;
+.lock-label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
 }
 
-.range-group span {
+.lock-label input {
+  display: none;
+}
+
+.lock-icon {
+  font-size: 12px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.lock-label:hover .lock-icon {
+  opacity: 1;
+}
+
+.lock-label.locked .lock-icon {
+  opacity: 1;
+}
+
+.range-sep {
+  font-size: 10px;
   color: #999;
+}
+
+.config-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #888;
 }
 
 .planner-actions {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .generation-time {
@@ -548,14 +794,20 @@ const selectCombination = (combo) => {
   color: #888;
 }
 
-.no-data-hint {
-  padding: 15px;
-  background: #fff3e0;
-  border: 1px solid #ffcc80;
+.btn-delete {
+  background: #ff5252;
+  color: white;
+  border: none;
   border-radius: 4px;
-  color: #e65100;
-  font-size: 13px;
-  text-align: center;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.btn-delete:hover {
+  background: #d32f2f;
 }
 
 .combinations-result {
@@ -636,6 +888,21 @@ const selectCombination = (combo) => {
   font-size: 11px;
   color: #555;
   line-height: 1.4;
+}
+
+.combo-expert.item-zero {
+  color: #999;
+  text-decoration: line-through;
+}
+
+.temp-badge {
+  display: inline-block;
+  background: #ff9800;
+  color: white;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
 }
 
 .no-solution {
